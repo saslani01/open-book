@@ -1,0 +1,41 @@
+# Build Folders
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+.vscode/
+*.ncrunch*
+*_ReSharper.*
+
+# Rider IDE
+.idea/
+
+# NuGet
+*.nupkg
+# The packages folder can be ignored because of PackageReference
+packages/
+
+# ASP.NET temporary files
+appsettings.Development.json
+*.dbmdl
+*.dbproj.user
+TestResults/
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Publish output
+publish/
+
+# zip 
+openbook-deploy.zip
+*.sln
