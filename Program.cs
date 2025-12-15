@@ -91,8 +91,8 @@ app.UseCors();
 app.UseRateLimiter();
 
 // Serve static files (HTML/CSS/JS)
-app.UseStaticFiles();
 app.UseDefaultFiles();
+app.UseStaticFiles();
 
 // Enable Swagger at /swagger
 app.UseSwagger();
