@@ -1,4 +1,4 @@
-# OpenBook
+# OpenBook [https://openbook-hhaddpgnfcfqd3b2.canadacentral-01.azurewebsites.net/index.html]
 
 An AI-powered chat interface that lets you have conversations with GitHub developers through their repositories and documentation.
 
