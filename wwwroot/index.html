@@ -1175,7 +1175,6 @@
                 const welcomeState = document.getElementById('welcome-state');
                 if (welcomeState) welcomeState.style.display = 'none';
                 
-                renderChatList();
                 switchToChat(session.sessionId);
                 updateTabsCount();
 
@@ -1374,40 +1373,47 @@
             const message = input.value.trim();
             if (!message) return;
 
-            const chat = chats[activeChat];
+            const sessionId = activeChat;
+            const chat = chats[sessionId];
 
-            // Add user message
+            // Save to data
             chat.messages.push({ role: 'user', content: message });
-            addMessageToDOM(message, 'user', chat);
+            
+            // Only add to DOM if still on same chat
+            if (activeChat === sessionId) {
+                addMessageToDOM(message, 'user', chat);
+            }
+            
             input.value = '';
-
             document.getElementById('send-btn').disabled = true;
 
-            // Show typing
-            const typingDiv = document.createElement('div');
-            typingDiv.className = 'message';
-            typingDiv.id = 'typing-indicator';
-            typingDiv.innerHTML = `
-                <img class="message-avatar" src="${chat.avatarUrl}" alt="${chat.username}"
-                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%2321262d%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%238b949e%22 font-size=%2240%22>?</text></svg>'">
-                <div class="message-content-wrapper">
-                    <div class="message-header">
-                        <span class="message-name">${chat.username}</span>
+            // Typing indicator
+            if (activeChat === sessionId) {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'message';
+                typingDiv.id = `typing-${sessionId}`;
+                typingDiv.innerHTML = `
+                    <img class="message-avatar" src="${chat.avatarUrl}" alt="${chat.username}"
+                        onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%2321262d%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%238b949e%22 font-size=%2240%22>?</text></svg>'">
+                    <div class="message-content-wrapper">
+                        <div class="message-header">
+                            <span class="message-name">${chat.username}</span>
+                        </div>
+                        <div class="typing-indicator"><span></span><span></span><span></span></div>
                     </div>
-                    <div class="typing-indicator"><span></span><span></span><span></span></div>
-                </div>
-            `;
-            document.getElementById('chat-messages').appendChild(typingDiv);
-            document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+                `;
+                document.getElementById('chat-messages').appendChild(typingDiv);
+                document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+            }
 
             try {
-                const response = await fetch(`${API_BASE}/chat/send?sessionId=${activeChat}`, {
+                const response = await fetch(`${API_BASE}/chat/send?sessionId=${sessionId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message })
                 });
 
-                document.getElementById('typing-indicator')?.remove();
+                document.getElementById(`typing-${sessionId}`)?.remove();
 
                 if (!response.ok) {
                     const error = await response.json();
@@ -1416,32 +1422,40 @@
 
                 const data = await response.json();
 
-                // Add assistant message
+                // Always save to correct chat object
                 chat.messages.push({ role: 'assistant', content: data.message });
-                addMessageToDOM(data.message, 'assistant', chat);
-
-                // Update stats
                 chat.tokens += data.tokensUsed;
-                document.getElementById('token-count').textContent = chat.tokens.toLocaleString();
-                
-                const badge = document.getElementById('context-mode');
-                badge.textContent = data.contextMode;
-                badge.className = `stat-badge ${data.contextMode.toLowerCase()}`;
-                
-                document.getElementById('matched-repo').textContent = data.matchedRepository || '-';
+
+                // Only update DOM if still on same chat
+                if (activeChat === sessionId) {
+                    addMessageToDOM(data.message, 'assistant', chat);
+                    document.getElementById('token-count').textContent = chat.tokens.toLocaleString();
+                    
+                    const badge = document.getElementById('context-mode');
+                    badge.textContent = data.contextMode;
+                    badge.className = `stat-badge ${data.contextMode.toLowerCase()}`;
+                    
+                    document.getElementById('matched-repo').textContent = data.matchedRepository || '-';
+                }
 
                 renderChatList();
 
             } catch (error) {
-                document.getElementById('typing-indicator')?.remove();
+                document.getElementById(`typing-${sessionId}`)?.remove();
                 chat.messages.push({ role: 'assistant', content: `Error: ${error.message}` });
-                addMessageToDOM(`Error: ${error.message}`, 'assistant', chat);
+                
+                if (activeChat === sessionId) {
+                    addMessageToDOM(`Error: ${error.message}`, 'assistant', chat);
+                }
             }
 
             document.getElementById('send-btn').disabled = false;
-            input.focus();
-        }
-
+            
+            if (activeChat === sessionId) {
+                input.focus();
+            }
+        }   
+        
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;

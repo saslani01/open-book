@@ -12,6 +12,7 @@ public class AzureOpenAIService : IKnowledgeBaseService
     private readonly OpenAI.Chat.ChatClient _chatClient;
     private readonly AzureOpenAIOptions _options;
     private readonly ILogger<AzureOpenAIService> _logger;
+    private const int MaxParallelCalls = 5;
 
     public AzureOpenAIService(
         IOptions<AzureOpenAIOptions> options,
@@ -30,9 +31,6 @@ public class AzureOpenAIService : IKnowledgeBaseService
     public async Task<KnowledgeBase> GenerateKnowledgeBaseAsync(CachedProfile profile)
     {
         _logger.LogInformation("Generating knowledge base for {Username}", profile.Username);
-        var projectSummaries = new List<ProjectSummary>(); 
-        int totalPromptTokens = 0;
-        int totalCompletionTokens = 0;
 
         var reposWithReadmes = profile.Repositories
             .Where(r => !string.IsNullOrEmpty(r.ReadmeContent))
@@ -40,41 +38,17 @@ public class AzureOpenAIService : IKnowledgeBaseService
 
         _logger.LogInformation("Analyzing {Count} repositories with READMEs", reposWithReadmes.Count);
 
-        foreach (var repo in reposWithReadmes)
-        {
-            var prompt = BuildReadmePrompt(repo);
+        var semaphore = new SemaphoreSlim(MaxParallelCalls);
+        var tasks = reposWithReadmes.Select(repo => AnalyzeRepoAsync(repo, semaphore));
+        var results = await Task.WhenAll(tasks);
 
-            var messages = new List<OpenAI.Chat.ChatMessage>
-            {
-                new OpenAI.Chat.SystemChatMessage("You are a technical analyst specializing in extracting key information from project documentation."),
-                new OpenAI.Chat.UserChatMessage(prompt)
-            };
-
-            var completionResult = await _chatClient.CompleteChatAsync(messages);
-            
-            var summary = completionResult.Value.Content[0].Text;
-            var usage = completionResult.Value.Usage;
-
-            totalPromptTokens += usage.InputTokenCount;
-            totalCompletionTokens += usage.OutputTokenCount;
-
-            projectSummaries.Add(new ProjectSummary
-            {
-                RepositoryName = repo.Name,
-                AiSummary = summary
-            });
-
-            _logger.LogInformation("Analyzed {RepoName}: {Tokens} tokens", 
-                repo.Name, usage.TotalTokenCount);
-
-            await Task.Delay(100);
-        }
+        var validResults = results.Where(r => r != null).ToList();
 
         var tokenUsage = new TokenUsage
         {
-            PromptTokens = totalPromptTokens,
-            CompletionTokens = totalCompletionTokens,
-            TotalTokens = totalPromptTokens + totalCompletionTokens
+            PromptTokens = validResults.Sum(r => r!.PromptTokens),
+            CompletionTokens = validResults.Sum(r => r!.CompletionTokens),
+            TotalTokens = validResults.Sum(r => r!.PromptTokens + r!.CompletionTokens)
         };
 
         _logger.LogInformation("Generated knowledge base for {Username}. Total tokens: {Tokens}",
@@ -85,9 +59,52 @@ public class AzureOpenAIService : IKnowledgeBaseService
             Username = profile.Username,
             GeneratedAt = DateTime.UtcNow,
             ProfileScrapedAt = profile.CachedAt,
-            ProjectSummaries = projectSummaries,
+            ProjectSummaries = validResults.Select(r => r!.Summary).ToList(),
             TokensUsed = tokenUsage
         };
+    }
+
+    private async Task<RepoAnalysisResult?> AnalyzeRepoAsync(Repository repo, SemaphoreSlim semaphore)
+    {
+        await semaphore.WaitAsync();
+        try
+        {
+            var prompt = BuildReadmePrompt(repo);
+
+            var messages = new List<OpenAI.Chat.ChatMessage>
+            {
+                new OpenAI.Chat.SystemChatMessage("You are a technical analyst specializing in extracting key information from project documentation."),
+                new OpenAI.Chat.UserChatMessage(prompt)
+            };
+
+            var completionResult = await _chatClient.CompleteChatAsync(messages);
+
+            var summary = completionResult.Value.Content[0].Text;
+            var usage = completionResult.Value.Usage;
+
+            _logger.LogInformation("Analyzed {RepoName}: {Tokens} tokens",
+                repo.Name, usage.TotalTokenCount);
+
+            return new RepoAnalysisResult
+            {
+                Summary = new ProjectSummary
+                {
+                    RepositoryName = repo.Name,
+                    AiSummary = summary
+                },
+                PromptTokens = usage.InputTokenCount,
+                CompletionTokens = usage.OutputTokenCount
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to analyze {RepoName}", repo.Name);
+            return null;
+        }
+        finally
+        {
+            semaphore.Release();
+        }
     }
 
     private string BuildReadmePrompt(Repository repo)
@@ -110,5 +127,12 @@ Extract and summarize in 3-5 concise paragraphs:
 5. TECHNICAL INSIGHTS: Interesting implementation details, challenges solved.
 
 Be specific and technical. Include actual technology names from the README. Keep it concise.";
+    }
+
+    private class RepoAnalysisResult
+    {
+        public required ProjectSummary Summary { get; set; }
+        public int PromptTokens { get; set; }
+        public int CompletionTokens { get; set; }
     }
 }
