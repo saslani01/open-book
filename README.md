@@ -246,8 +246,9 @@ The current manual deployment works but could be improved:
 
 ## Future Improvements
 
+* VERY IMPORTANT: seprate the background job of KB generation with sending HTTP request to avoid Azure 504 error for very large profiles
 * Robust standalone frontend
-* Resume upload for richer personas
+* Resume upload for richer personas 
 * CI/CD pipeline with GitHub Actions
 
 ## License
