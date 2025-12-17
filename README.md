@@ -1,7 +1,7 @@
 # OpenBook
 🔗 https://openbook-hhaddpgnfcfqd3b2.canadacentral-01.azurewebsites.net/index.html
 
-An AI-powered chat interface that lets you have conversations with GitHub developers through their repositories and documentation.
+An AI-powered chat interface that lets you have conversations with GitHub developers through their repositories and documentation. (SOON: uploading resume feature for knowledge base)
 
 ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?style=flat\&logo=dotnet)
 ![Azure](https://img.shields.io/badge/Azure-OpenAI-0078D4?style=flat\&logo=microsoft-azure)
