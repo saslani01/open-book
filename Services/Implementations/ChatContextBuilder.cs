@@ -4,8 +4,6 @@ using OpenBook.Models;
 
 public class ChatContextBuilder
 {
-    private const int MaxReposInContext = 10;
-
     public string BuildPersonaPrompt(CachedProfile profile)
     {
         var name = profile.Name ?? profile.Username;

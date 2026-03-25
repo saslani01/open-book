@@ -28,11 +28,14 @@ OpenBook scrapes GitHub profiles, analyzes repositories using AI, and creates in
 |------|------------|
 | **Framework** | ASP.NET Core 9.0 |
 | **Language** | C# |
-| **AI** | Azure OpenAI (GPT-4o-mini) |
+| **AI** | Azure OpenAI (GPT-4.1-mini after gpt-4o-mini retirement and auto-upgrade) |
 | **Storage** | Azure Blob Storage |
 | **External API** | GitHub REST API |
 | **Frontend** | Vanilla HTML/CSS/JS (demo only) |
 | **Hosting** | Azure App Service (Web App) |
+
+Note: Deployment name is `gpt-4o-mini`, but because of auto-upgrade 
+after model retirement, the current model being used is `gpt-4.1-mini`.
 
 ## Getting Started
 
