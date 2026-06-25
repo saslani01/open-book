@@ -24,7 +24,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Rate Limiting - Fixed Window: 10 requests per minute per IP
+// Rate Limiting - Fixed Window: 10 requests per minute
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

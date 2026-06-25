@@ -35,7 +35,7 @@ public class GitHubService : IGitHubService
         var rateLimit = await CheckRateLimitAsync();
         if (rateLimit.Remaining < 50)
         {
-            _logger.LogWarning("Low rate limit before scraping: {Remaining}/{Limit}", 
+            _logger.LogWarning("Low rate limit before scraping: {Remaining}/{Limit}",
                 rateLimit.Remaining, rateLimit.Limit);
         }
 
@@ -50,7 +50,7 @@ public class GitHubService : IGitHubService
         await PopulateRepositoriesAsync(profile);
         CalculateMetadata(profile);
 
-        _logger.LogInformation("Successfully scraped {RepoCount} repositories for {Username}", 
+        _logger.LogInformation("Successfully scraped {RepoCount} repositories for {Username}",
             profile.Repositories.Count, profile.Username);
 
         return profile;
@@ -120,7 +120,7 @@ public class GitHubService : IGitHubService
         {
             var response = await _httpClient.GetAsync(
                 $"/users/{profile.Username}/repos?per_page=100&page={page}&sort=updated");
-            
+
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
@@ -150,7 +150,7 @@ public class GitHubService : IGitHubService
                     Languages = languages
                 });
 
-                _logger.LogInformation("Processed {RepoName} ({LanguageCount} languages)", 
+                _logger.LogInformation("Processed {RepoName} ({LanguageCount} languages)",
                     repoName, languages.Count);
             }
 
@@ -164,13 +164,13 @@ public class GitHubService : IGitHubService
         try
         {
             var response = await _httpClient.GetAsync($"/repos/{profile.Username}/{repoName}/readme");
-            
+
             if (!response.IsSuccessStatusCode)
                 return null;
 
             var json = await response.Content.ReadAsStringAsync();
             var data = JsonSerializer.Deserialize<JsonElement>(json);
-            
+
             var content = data.GetProperty("content").GetString();
             if (string.IsNullOrEmpty(content))
                 return null;
@@ -189,7 +189,7 @@ public class GitHubService : IGitHubService
         try
         {
             var response = await _httpClient.GetAsync($"/repos/{profile.Username}/{repoName}/languages");
-            
+
             if (!response.IsSuccessStatusCode)
                 return new Dictionary<string, LanguageInfo>();
 
@@ -251,62 +251,62 @@ public class GitHubService : IGitHubService
     }
 
     private void CalculateMetadata(CachedProfile profile)
-{
-    profile.TotalStars = profile.Repositories.Sum(r => r.Stars);
-    
-    var languageCounts = new Dictionary<string, int>();
-    var languageBytes = new Dictionary<string, long>();
-
-    foreach (var repo in profile.Repositories)
     {
-        // Use the detailed Languages dictionary if available
-        if (repo.Languages.Any())
+        profile.TotalStars = profile.Repositories.Sum(r => r.Stars);
+
+        var languageCounts = new Dictionary<string, int>();
+        var languageBytes = new Dictionary<string, long>();
+
+        foreach (var repo in profile.Repositories)
         {
-            foreach (var lang in repo.Languages)
+            // Use the detailed Languages dictionary if available
+            if (repo.Languages.Any())
             {
-                if (!languageCounts.ContainsKey(lang.Key))
+                foreach (var lang in repo.Languages)
                 {
-                    languageCounts[lang.Key] = 0;
-                    languageBytes[lang.Key] = 0;
+                    if (!languageCounts.ContainsKey(lang.Key))
+                    {
+                        languageCounts[lang.Key] = 0;
+                        languageBytes[lang.Key] = 0;
+                    }
+                    languageCounts[lang.Key]++;
+                    languageBytes[lang.Key] += lang.Value.Bytes;
                 }
-                languageCounts[lang.Key]++;
-                languageBytes[lang.Key] += lang.Value.Bytes;
             }
-        }
-        // Fallback to PrimaryLanguage if Languages is empty
-        else if (!string.IsNullOrEmpty(repo.PrimaryLanguage))
-        {
-            if (!languageCounts.ContainsKey(repo.PrimaryLanguage))
+            // Fallback to PrimaryLanguage if Languages is empty
+            else if (!string.IsNullOrEmpty(repo.PrimaryLanguage))
             {
-                languageCounts[repo.PrimaryLanguage] = 0;
-                languageBytes[repo.PrimaryLanguage] = 0;
+                if (!languageCounts.ContainsKey(repo.PrimaryLanguage))
+                {
+                    languageCounts[repo.PrimaryLanguage] = 0;
+                    languageBytes[repo.PrimaryLanguage] = 0;
+                }
+                languageCounts[repo.PrimaryLanguage]++;
             }
-            languageCounts[repo.PrimaryLanguage]++;
         }
+
+        // Calculate total bytes for percentage
+        var totalBytes = languageBytes.Values.Sum();
+
+        profile.LanguageStats = languageCounts
+            .OrderByDescending(kvp => languageBytes.GetValueOrDefault(kvp.Key, 0))
+            // .Take(10)  lets take all for now!
+            .ToDictionary(
+                kvp => kvp.Key,
+                kvp => new LanguageStat
+                {
+                    ReposUsingThisLanguage = kvp.Value,
+                    Percentage = totalBytes > 0
+                        ? (double)languageBytes[kvp.Key] / totalBytes * 100
+                        : 0
+                }
+            );
     }
 
-    // Calculate total bytes for percentage
-    var totalBytes = languageBytes.Values.Sum();
-
-    profile.LanguageStats = languageCounts
-        .OrderByDescending(kvp => languageBytes.GetValueOrDefault(kvp.Key, 0))
-        // .Take(10)  lets take all for now!
-        .ToDictionary(
-            kvp => kvp.Key,
-            kvp => new LanguageStat
-            {
-                ReposUsingThisLanguage = kvp.Value,
-                Percentage = totalBytes > 0 
-                    ? (double)languageBytes[kvp.Key] / totalBytes * 100 
-                    : 0
-            }
-        );
-}
 
 
-    
 
-    
+
 
 }
 
